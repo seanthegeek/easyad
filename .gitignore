@@ -87,3 +87,14 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# PyCharm project settings
+.idea
+
+# Test creds
+test.py
+
+# Certificates
+*.cer
+*.crt
+
