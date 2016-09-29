@@ -139,7 +139,7 @@ decode_ldap_results(results, json_safe=False)
 
 ::
 
-Converts LDAP search results from bytes to a dictionary of UTF-8 where possible
+    Converts LDAP search results from bytes to a dictionary of UTF-8 where possible
 
     Args:
         results: LDAP search results
