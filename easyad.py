@@ -78,16 +78,16 @@ def _get_last_logon(timestamp, json_safe=False):
     return timestamp
 
 
-def _decode_ldap_results(results, json_safe=False):
+def decode_ldap_results(results, json_safe=False):
     """
     Converts LDAP search results from bytes to a dictionary of UTF-8 where possible
+
     Args:
         results: LDAP search results
         json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
 
     Returns:
-        A list of processed LDAP LDAP result dictionaries.
-
+        A list of processed LDAP result dictionaries.
     """
     results = [entry for dn, entry in results if isinstance(entry, dict)]
     for ldap_object in results:
@@ -289,7 +289,7 @@ class EasyAD(object):
                                        filterstr=filter_string,
                                        attrlist=attributes)
 
-            results = _decode_ldap_results(results, json_safe=json_safe)
+            results = decode_ldap_results(results, json_safe=json_safe)
 
             if len(results) == 0:
                 raise ValueError("No such user")
@@ -345,7 +345,7 @@ class EasyAD(object):
                                        filterstr=group_filter,
                                        attrlist=attributes)
 
-            results = _decode_ldap_results(results, json_safe=json_safe)
+            results = decode_ldap_results(results, json_safe=json_safe)
 
             if len(results) == 0:
                 raise ValueError("No such group")

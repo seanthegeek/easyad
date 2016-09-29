@@ -19,16 +19,51 @@ A simple Python module for common Active Directory authentication and lookup tas
      See the License for the specific language governing permissions and
      limitations under the License.
 
+Why?
+----
+
+Most LDAP solutions for Python and/or Flask focus in being generic LDAP
+interfaces. It's up to the developer to understand and work around the
+quirks of Active Directory. This module aims to reduce the complexity
+and development time for Python-powered applications that securely
+interface with Active Directory.
+
 Features
 --------
 
 -  Python 2 and 3 support
+-  Unicode support
 -  Authenticate user credentials via direct bind
 -  Query user attributes
 -  Query group attributes
+-  Options to automatically convert binary data into base64 for JSON-safe
+   output
 
-Examples
---------
+To do
+-----
+
+1. Add basic user and group searching
+2. ???
+3. Upload to PyPI
+
+
+Installing
+----------
+
+First, install the system dependencies
+
+::
+
+    $ sudo apt-get install libsasl2-dev python3-dev python3-pip libldap2-dev libssl-dev
+
+Then
+
+::
+
+    $ sudo pip3 install git+https://github.com/seanthegeek/easyad.git
+
+Example uses
+------------
 
 ::
 
@@ -45,7 +80,7 @@ Examples
     # It's 2016...you should really be using Python 3
     try:
         input = raw_input
-        except NameError:
+    except NameError:
             pass
 
     # Set up configuration. You could also use a Flask app.config
@@ -64,17 +99,18 @@ Examples
 
     try:
         user = ad.get_user(username, credentials=credentials, json_safe=True)
+
+        # Successful login! Print the user's details as JSON
+        print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
+
     except INVALID_CREDENTIALS:
         print("Those credentials are invalid. Please try again.")
         exit(-1)
 
-    # Successful login! Print the user's details as JSON
-    print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
-
     # You can also add service account credentials to the config to do lookups without
     # passing in the credentials on every call
     ad.config["AD_BIND_USERNAME"] = "SA-ADLookup"
-    ad.config["AD_BIND_PASSWORD"] = 12345LuggageAmazing"
+    ad.config["AD_BIND_PASSWORD"] = "12345LuggageAmazing"
 
     user = ad.get_user("maurice.moss", json_safe=True)
     print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
@@ -99,6 +135,19 @@ convert_ad_timestamp(timestamp, json_safe=False)
         A datetime or a human-readable string
 
 
+decode_ldap_results(results, json_safe=False)
+
+::
+
+Converts LDAP search results from bytes to a dictionary of UTF-8 where possible
+
+    Args:
+        results: LDAP search results
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+
+    Returns:
+        A list of processed LDAP result dictionaries.
+
 easyad.EasyAD methods
 ---------------------
 
@@ -109,14 +158,14 @@ EasyAD.__init__(self, config)
     Initializes the EasyAD class
 
      Args:
-            config: A dictionary of configuration settings
-                Required:
-                    AD_SERVER: the hostname of the Active Directory Server
-                    AD_DOMAIN: The domain to bind to, in TLD format
-                Optional:
-                    AD_REQUIRE_TLS: Require a TLS connection. True by default.
-                    AD_CA_CERT_FILE: the path to the root CA certificate file
-                    AD_BASE_DN: Overrides the base distinguished name. Derived from AD_DOMAIN by default.
+        config: A dictionary of configuration settings
+            Required:
+                AD_SERVER: the hostname of the Active Directory Server
+                AD_DOMAIN: The domain to bind to, in TLD format
+            Optional:
+                AD_REQUIRE_TLS: Require a TLS connection. True by default.
+                AD_CA_CERT_FILE: the path to the root CA certificate file
+                AD_BASE_DN: Overrides the base distinguished name. Derived from AD_DOMAIN by default.
 
 
 EasyAD.get_user(self, user_string, json_safe=False, credentials=None, attributes=None)
@@ -125,19 +174,19 @@ EasyAD.get_user(self, user_string, json_safe=False, credentials=None, attributes
 
     Searches for a unique user object and returns its attributes
 
-            Args:
-                user_string: A userPrincipalName, sAMAccountName, or distinguishedName
-                json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
-                credentials: A optional dictionary of the username and password to use.
-                If credentials are not passed, the credentials from the initial EasyAD configuration are used.
-                attributes: An optional list of attributes to return. Otherwise uses self.user_attributes.
-                To return all attributes, pass an empty list.
+    Args:
+        user_string: A userPrincipalName, sAMAccountName, or distinguishedName
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+        credentials: A optional dictionary of the username and password to use.
+        If credentials are not passed, the credentials from the initial EasyAD configuration are used.
+        attributes: An optional list of attributes to return. Otherwise uses self.user_attributes.
+        To return all attributes, pass an empty list.
 
-            Returns:
-                A dictionary of user attributes
+    Returns:
+        A dictionary of user attributes
 
-            Raises:
-                ValueError: query returned no or multiple results
+    Raises:
+        ValueError: query returned no or multiple results
 
 
 EasyAD.get_group(self, group_string, json_safe=False, credentials=None, attributes=None)
@@ -146,19 +195,19 @@ EasyAD.get_group(self, group_string, json_safe=False, credentials=None, attribut
 
     Searches for a unique group object and returns its attributes
 
-            Args:
-                group_string: A name, cn, or distinguishedName
-                json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
-                credentials: A optional dictionary of the username and password to use.
-                If credentials are not passed, the credentials from the initial EasyAD configuration are used.
-                attributes: An optional list of attributes to return. Otherwise uses self.group_attributes.
-                To return all attributes, pass an empty list.
+    Args:
+        group_string: A name, cn, or distinguishedName
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+        credentials: A optional dictionary of the username and password to use.
+        If credentials are not passed, the credentials from the initial EasyAD configuration are used.
+        attributes: An optional list of attributes to return. Otherwise uses self.group_attributes.
+        To return all attributes, pass an empty list.
 
-            Returns:
-                A dictionary of group attributes
+    Returns:
+        A dictionary of group attributes
 
-            Raises:
-                ValueError: query returned no or multiple results
+    Raises:
+        ValueError: query returned no or multiple results
 
 
 EasyAD.bind(credentials=None)
@@ -167,15 +216,15 @@ EasyAD.bind(credentials=None)
 
     Attempts to bind from the Active Directory server
 
-            Args:
-                credentials: A optional dictionary of the username and password to use.
-                If credentials are not passed, the credentials from the initial EasyAD configuration are used.
+    Args:
+        credentials: A optional dictionary of the username and password to use.
+        If credentials are not passed, the credentials from the initial EasyAD configuration are used.
 
-            Returns:
-                True if the bind was successful
+    Returns:
+        True if the bind was successful
 
-            Raises:
-                ldap.INVALID_CREDENTIALS
+    Raises:
+        ldap.INVALID_CREDENTIALS
 
 EasyAD.unbind()
 
