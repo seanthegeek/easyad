@@ -1,5 +1,5 @@
-pyldfire
-========
+easyad
+======
 
 A simple Python module for common Active Directory authentication and lookup tasks
 
