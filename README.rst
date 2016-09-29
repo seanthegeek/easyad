@@ -50,9 +50,9 @@ Examples
 
     # Set up configuration. You could also use a Flask app.config
     config = dict(AD_SERVER="ad.example.net",
-              AD_DOMAIN="example.net",
-              CA_CERT_FILE="myrootca.crt",
-              )
+                  AD_DOMAIN="example.net",
+                  CA_CERT_FILE="myrootca.crt")
+
     # Initialize all the things!
     ad = EasyAD(config)
 
@@ -181,4 +181,4 @@ EasyAD.unbind()
 
 ::
 
-    Unbind rom the Active Directory server
+    Unbind from the Active Directory server
