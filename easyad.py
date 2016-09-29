@@ -56,12 +56,12 @@ def _get_last_logon(timestamp, json_safe=False):
     """
     Converts a LastLogonTimestamp to a datetime or human-readable format
     Args:
-        timestamp: The timestamp from a LastLogonTimestamp user attribute
+        timestamp: The timestamp from a lastLogonTimestamp user attribute
         json_safe: If true, always return a string
 
     Returns:
         A datetime or string showing the user's last login, or the string "<=14", since
-        LastLogonTimestamp is not accurate withing 14 days
+        lastLogonTimestamp is not accurate withing 14 days
     """
     timestamp = convert_ad_timestamp(timestamp, json_safe=False)
     if timestamp is None:
@@ -253,6 +253,9 @@ class EasyAD(object):
         return True
 
     def unbind(self):
+        """
+        Unbind from the Active Directory server
+        """
         self.ad.unbind()
 
     def get_user(self, user_string, json_safe=False, credentials=None, attributes=None):
