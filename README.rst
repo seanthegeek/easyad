@@ -125,7 +125,7 @@ Example uses
     print("Is Jen a manager?")
     print(ad.user_is_member_of_group("jen.barber", "Managers"))
 
-    # The calls can below be taxing on an AD server, especially when used frequently.
+    # The calls below can be taxing on an AD server, especially when used frequently.
     # If you just need to check if a user is a member of a group use
     # EasyAD.user_is_member_of_group(). It is *much* faster.
 
