@@ -129,7 +129,8 @@ Example uses
     # If you just need to check if a user is a member of a group use
     # EasyAD.user_is_member_of_group(). It is *much* faster.
 
-    # I wonder who all is in the "LocalAdministrators" group? Let's run a query that will search in nested groups.
+    # I wonder who all is in the "LocalAdministrators" group? Let's run a
+    # query that will search in nested groups.
     print(dumps(ad.get_all_users_in_group(local_admin_group_name, json_safe=True)))
 
     # Let's see all of the groups that Moss in in, including nested groups
