@@ -363,7 +363,7 @@ class EasyAD(object):
             json_safe: Convert binary data to base64 and datetimes to human-readable strings
 
         Returns:
-            A dictionary of user attributes is successful, or false if ir failed
+            A dictionary of user attributes if successful, or False if it failed
 
         Raises:
             ldap.LDAP_ERROR
@@ -437,7 +437,7 @@ class EasyAD(object):
         Returns a user's DN when given a principalAccountName, sAMAccountName, email, or DN
 
         Args:
-            user: A principalAccountName, sAMAccountName, email, or DN
+            user: A principalAccountName, sAMAccountName, email, DN, or a dictionary containing a DN
             base: Optionally overrides the base object DN
             credentials: An optional dictionary of the username and password to use
             json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
@@ -462,7 +462,7 @@ class EasyAD(object):
         Returns a group's DN when given a principalAccountName, sAMAccountName, email, or DN
 
         Args:
-            group: A group name, cn, or dn
+            group: A group name, CN, or DN, or a dictionary containing a DN
             base: Optionally overrides the base object DN
             credentials: An optional dictionary of the username and password to use
             json_safe: If true, convert binary data to base64 and datetimes to human-readable strings

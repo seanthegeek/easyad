@@ -122,12 +122,15 @@ Example uses
     group = ad.get_group("helpdesk", json_safe=True)
     print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
 
-    # I wonder who all is in the "LocalAdministrators" group? Let's run a query that will search in nested groups.
-    print(dumps(ad.get_all_users_in_group(local_admin_group_name, json_safe=True)))
+    print("Is Jen a manager?")
+    print(ad.user_is_member_of_group("jen.barber", "Managers"))
 
     # The calls can below be taxing on an AD server, especially when used frequently.
     # If you just need to check if a user is a member of a group use
     # EasyAD.user_is_member_of_group(). It is *much* faster.
+
+    # I wonder who all is in the "LocalAdministrators" group? Let's run a query that will search in nested groups.
+    print(dumps(ad.get_all_users_in_group(local_admin_group_name, json_safe=True)))
 
     # Let's see all of the groups that Moss in in, including nested groups
     print(dumps(ad.get_all_user_groups(user), indent=2, ensure_ascii=False))
@@ -230,7 +233,7 @@ EasyAD.authenticate_user(self, username, password, base=None, attributes=None, j
         json_safe: Convert binary data to base64 and datetimes to human-readable strings
 
     Returns:
-        A dictionary of user attributes is successful, or false if ir failed
+        A dictionary of user attributes if successful, or False if it failed
 
     Raises:
         ldap.LDAP_ERROR
@@ -346,16 +349,16 @@ EasyAD.resolve_group_dn(self, group, base=None, credentials=None, json_safe=Fals
 
 ::
 
-    Returns a user's DN when given a principalAccountName, sAMAccountName, email, or DN
+    Returns a group's DN when given a principalAccountName, sAMAccountName, email, or DN
 
     Args:
-        user: A principalAccountName, sAMAccountName, email, or DN
+        group: A group name, CN, or DN, or a dictionary containing a DN
         base: Optionally overrides the base object DN
         credentials: An optional dictionary of the username and password to use
         json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
 
     Returns:
-        The user's DN
+        The groups's DN
 
     Raises:
         ldap.LDAP_ERROR
@@ -364,16 +367,16 @@ EasyAD.resolve_user_dn(self, user, base=None, credentials=None, json_safe=False)
 
 ::
 
-    Returns a group's DN when given a principalAccountName, sAMAccountName, email, or DN
+    Returns a user's DN when given a principalAccountName, sAMAccountName, email, or DN
 
     Args:
-        group: A group name, cn, or dn
+        user: A principalAccountName, sAMAccountName, email, DN, or a dictionary containing a DN
         base: Optionally overrides the base object DN
         credentials: An optional dictionary of the username and password to use
         json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
 
     Returns:
-        The groups's DN
+        The user's DN
 
     Raises:
         ldap.LDAP_ERROR
