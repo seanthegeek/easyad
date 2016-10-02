@@ -34,17 +34,21 @@ Features
 -  Python 2 and 3 support
 -  Unicode support
 -  Authenticate user credentials via direct bind
+- Quickly test if a user is a member of a group, including nested groups
 -  Query user attributes
 -  Query group attributes
+-  Get all groups that a user is a member of, including nested groups
+-  Get a list of all group member user, including from nested groups
 -  Options to automatically convert binary data into base64 for JSON-safe
    output
 
 To do
 -----
 
-1. Add basic user and group searching
-2. ???
-3. Upload to PyPI
+1. Add paging support
+3. Add simple user and group searching
+4. ???
+5. Upload to PyPI
 
 
 Installing
@@ -72,8 +76,6 @@ Example uses
     from getpass import getpass
     from json import dumps
 
-    from ldap import INVALID_CREDENTIALS
-
     from easyad import EasyAD
 
     # Workaround to make input() return a string in Python 2 like it does in Python 3
@@ -95,15 +97,17 @@ Example uses
     username = input("Username: ")
     password = getpass("Password: ")
 
-    credentials = dict(username=username, password=password)
+    local_admin_group_name = "LocalAdministrators"
 
-    try:
-        user = ad.get_user(username, credentials=credentials, json_safe=True)
+    user = ad.authenticate_user(username, password, json_safe=True)
 
-        # Successful login! Print the user's details as JSON
+    if user:
+        # Successful login! Let's print your details as JSON
         print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
 
-    except INVALID_CREDENTIALS:
+        # Lets find out if you are a member of the "LocalAdministrators" group
+        print(ad.user_is_member_of_group(username, local_admin_group_name))
+    else:
         print("Those credentials are invalid. Please try again.")
         exit(-1)
 
@@ -117,6 +121,16 @@ Example uses
 
     group = ad.get_group("helpdesk", json_safe=True)
     print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
+
+    # I wonder who all is in the "LocalAdministrators" group? Let's run a query that will search in nested groups.
+    print(dumps(ad.get_all_users_in_group(local_admin_group_name, json_safe=True)))
+
+    # The calls can below be taxing on an AD server, especially when used frequently.
+    # If you just need to check if a user is a member of a group use
+    # EasyAD.user_is_member_of_group(). It is *much* faster.
+
+    # Let's see all of the groups that Moss in in, including nested groups
+    print(dumps(ad.get_all_user_groups(user), indent=2, ensure_ascii=False))
 
 easyad methods
 --------------
@@ -148,6 +162,40 @@ decode_ldap_results(results, json_safe=False)
     Returns:
         A list of processed LDAP result dictionaries.
 
+easyad.ADConnection methods
+---------------------------
+
+def __init__(self, config)
+
+::
+
+    A LDAP configuration abstraction
+
+    Attributes:
+        config: The configuration dictionary
+        ad:The LDAP interface instance
+
+bind(self, credentials=None)
+
+::
+
+    Attempts to bind to the Active Directory server
+
+    Args:
+        credentials: A optional dictionary of the username and password to use.
+        If credentials are not passed, the credentials from the initial EasyAD configuration are used.
+
+    Returns:
+        True if the bind was successful
+
+    Raises:
+        ldap.LDAP_ERROR
+unbind(self)
+
+::
+
+    Unbind from the Active Directory server
+
 easyad.EasyAD methods
 ---------------------
 
@@ -167,6 +215,88 @@ EasyAD.__init__(self, config)
                 AD_CA_CERT_FILE: the path to the root CA certificate file
                 AD_BASE_DN: Overrides the base distinguished name. Derived from AD_DOMAIN by default.
 
+
+EasyAD.authenticate_user(self, username, password, base=None, attributes=None, json_safe=False)
+
+::
+
+    Test if the given credentials are valid
+
+    Args:
+        username: The username
+        password: The password
+        base: Optionally overrides the base object DN
+        attributes: A list of user attributes to return
+        json_safe: Convert binary data to base64 and datetimes to human-readable strings
+
+    Returns:
+        A dictionary of user attributes is successful, or false if ir failed
+
+    Raises:
+        ldap.LDAP_ERROR
+
+EasyAD.bind(credentials=None)
+
+::
+
+    Attempts to bind from the Active Directory server
+
+    Args:
+        credentials: A optional dictionary of the username and password to use.
+        If credentials are not passed, the credentials from the initial EasyAD configuration are used.
+
+    Returns:
+        True if the bind was successful
+
+    Raises:
+        ldap.INVALID_CREDENTIALS
+
+EasyAD.get_all_user_groups(self, user, base=None, credentials=None, json_safe=False)
+
+::
+
+    Returns a list of all group DNs that a user is a member of, including nested groups
+
+    Args:
+        user: A username, distinguishedName, or a dictionary containing a distinguishedName
+        base: Overrides the configured base object dn
+        credentials: An optional dictionary of the username and password to use
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+
+    Returns:
+        A list of group DNs that the user is a member of, including nested groups
+
+    Raises:
+        ldap.LDAP_ERROR
+
+    Notes:
+        This call can be taxing on an AD server, especially when used frequently.
+        If you just need to check if a user is a member of a group,
+        use EasyAD.user_is_member_of_group(). It is *much* faster.
+
+
+EasyAD.get_all_users_in_group(self, group, base=None, credentials=None, json_safe=False)
+
+::
+
+    Returns a list of all user DNs that are members of a given group, including from nested groups
+
+    Args:
+       group: A group name, cn, or dn
+       base: Overrides the configured base object dn
+       credentials: An optional dictionary of the username and password to use
+       json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+
+    Returns:
+       A list of all user DNs that are members of a given group, including users from nested groups
+
+    Raises:
+        ldap.LDAP_ERROR
+
+    Notes:
+       This call can be taxing on an AD server, especially when used frequently.
+       If you just need to check if a user is a member of a group,
+       use EasyAD.user_is_member_of_group(). It is *much* faster.
 
 EasyAD.get_user(self, user_string, json_safe=False, credentials=None, attributes=None)
 
@@ -189,45 +319,85 @@ EasyAD.get_user(self, user_string, json_safe=False, credentials=None, attributes
         ValueError: query returned no or multiple results
 
 
-EasyAD.get_group(self, group_string, json_safe=False, credentials=None, attributes=None)
+EasyAD.get_group(self, group_string, base=None, credentials=None, attributes=None, json_safe=False)
 
 ::
 
     Searches for a unique group object and returns its attributes
 
     Args:
-        group_string: A name, cn, or distinguishedName
-        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+        group_string: A group name, cn, or dn
+        base: Optionally override the base object dn
         credentials: A optional dictionary of the username and password to use.
         If credentials are not passed, the credentials from the initial EasyAD configuration are used.
         attributes: An optional list of attributes to return. Otherwise uses self.group_attributes.
         To return all attributes, pass an empty list.
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
 
     Returns:
         A dictionary of group attributes
 
     Raises:
-        ValueError: query returned no or multiple results
+        ValueError: Query returned no or multiple results
+        ldap.LDAP_ERROR: An LDAP error occurred
 
 
-EasyAD.bind(credentials=None)
+EasyAD.resolve_group_dn(self, group, base=None, credentials=None, json_safe=False)
 
 ::
 
-    Attempts to bind from the Active Directory server
+    Returns a user's DN when given a principalAccountName, sAMAccountName, email, or DN
 
     Args:
-        credentials: A optional dictionary of the username and password to use.
-        If credentials are not passed, the credentials from the initial EasyAD configuration are used.
+        user: A principalAccountName, sAMAccountName, email, or DN
+        base: Optionally overrides the base object DN
+        credentials: An optional dictionary of the username and password to use
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
 
     Returns:
-        True if the bind was successful
+        The user's DN
 
     Raises:
-        ldap.INVALID_CREDENTIALS
+        ldap.LDAP_ERROR
+
+EasyAD.resolve_user_dn(self, user, base=None, credentials=None, json_safe=False)
+
+::
+
+    Returns a group's DN when given a principalAccountName, sAMAccountName, email, or DN
+
+    Args:
+        group: A group name, cn, or dn
+        base: Optionally overrides the base object DN
+        credentials: An optional dictionary of the username and password to use
+        json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+
+    Returns:
+        The groups's DN
+
+    Raises:
+        ldap.LDAP_ERROR
 
 EasyAD.unbind()
 
 ::
 
     Unbind from the Active Directory server
+
+EasyAD.user_is_member_of_group(self, user, group, base=None, credentials=None)
+
+::
+
+    Tests if a given user is a member of the given group
+
+    Args:
+    user: A principalAccountName, sAMAccountName, email, or DN
+    group: A group name, cn, or dn
+    base: An optional dictionary of the username and password to use
+    credentials: An optional dictionary of the username and password to use
+
+    Raises:
+    ldap.LDAP_ERROR
+
+    Returns:
+    A boolean that indicates if the given user is a member of the given group

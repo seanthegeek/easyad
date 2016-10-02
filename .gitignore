@@ -93,6 +93,7 @@ ENV/
 
 # Test creds
 test.py
+example.py
 
 # Certificates
 *.cer
