@@ -34,7 +34,7 @@ Features
 -  Python 2 and 3 support
 -  Unicode support
 -  Authenticate user credentials via direct bind
-- Quickly test if a user is a member of a group, including nested groups
+-  Quickly test if a user is a member of a group, including nested groups
 -  Query user attributes
 -  Query group attributes
 -  Get all groups that a user is a member of, including nested groups
@@ -46,9 +46,9 @@ To do
 -----
 
 1. Add paging support
-3. Add simple user and group searching
-4. ???
-5. Upload to PyPI
+2. Add simple user and group searching
+3. ???
+4. Upload to PyPI
 
 
 Installing
@@ -165,7 +165,7 @@ decode_ldap_results(results, json_safe=False)
 easyad.ADConnection methods
 ---------------------------
 
-def __init__(self, config)
+ADConnection.__init__(self, config)
 
 ::
 
@@ -175,7 +175,7 @@ def __init__(self, config)
         config: The configuration dictionary
         ad:The LDAP interface instance
 
-bind(self, credentials=None)
+ADConnection.bind(self, credentials=None)
 
 ::
 
@@ -190,7 +190,8 @@ bind(self, credentials=None)
 
     Raises:
         ldap.LDAP_ERROR
-unbind(self)
+
+ADConnection.unbind(self)
 
 ::
 
