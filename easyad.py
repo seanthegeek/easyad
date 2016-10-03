@@ -43,7 +43,7 @@ def _create_controls(pagesize):
     """Create an LDAP control with a page size of "pagesize"."""
     # Initialize the LDAP controls for paging. Note that we pass ''
     # for the cookie because on first iteration, it starts out empty.
-    return SimplePagedResultsControl(criticality=True, size=pagesize, cookie=bytes("", "utf-8"))
+    return SimplePagedResultsControl(criticality=False, size=pagesize, cookie=bytes("", "utf-8"))
 
 
 def _get_pctrls(serverctrls):
