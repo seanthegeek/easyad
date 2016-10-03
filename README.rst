@@ -105,7 +105,7 @@ Example uses
         print(dumps(user, sort_keys=True, indent=2, ensure_ascii=False))
 
         # Lets find out if you are a member of the "LocalAdministrators" group
-        print(ad.user_is_member_of_group(username, local_admin_group_name))
+        print(ad.user_is_member_of_group(usser, local_admin_group_name))
     else:
         print("Those credentials are invalid. Please try again.")
         exit(-1)
