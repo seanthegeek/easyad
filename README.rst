@@ -45,7 +45,7 @@ Features
 To do
 -----
 
-1. Fix AD/LDAP paging support
+1. More testing/proofreading
 2. ???
 3. Upload to PyPI
 

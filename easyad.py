@@ -43,10 +43,10 @@ def _create_controls(pagesize):
     """Create an LDAP control with a page size of "pagesize"."""
     # Initialize the LDAP controls for paging. Note that we pass ''
     # for the cookie because on first iteration, it starts out empty.
-    return SimplePagedResultsControl(criticality=False, size=pagesize, cookie=bytes("", "utf-8"))
+    return SimplePagedResultsControl(criticality=True, size=pagesize, cookie="")
 
 
-def _get_pctrls(serverctrls):
+def _get_page_controls(serverctrls):
     """Lookup an LDAP paged control object from the returned controls."""
     # Look through the returned controls and find the page controls.
     # This will also have our returned cookie which we need to make
@@ -54,13 +54,6 @@ def _get_pctrls(serverctrls):
     for control in serverctrls:
         if control.controlType == SimplePagedResultsControl.controlType:
             return control
-
-
-def _set_cookie(lc_object, pctrls):
-    """Push latest cookie back into the page control."""
-    cookie = pctrls[0].cookie
-    lc_object.cookie = cookie
-    return cookie
 
 
 def convert_ad_timestamp(timestamp, json_safe=False, str_format="%x %X"):
@@ -151,7 +144,7 @@ class ADConnection(object):
     def __init__(self, config):
         self.config = config
         ad_server_url = "ldap://{0}".format(self.config["AD_SERVER"])
-        ad = ldap.initialize(ad_server_url, trace_level=2)
+        ad = ldap.initialize(ad_server_url)
         ad.set_option(ldap.OPT_PROTOCOL_VERSION, ldap.VERSION3)
         ad.set_option(ldap.OPT_REFERRALS, 0)
 
@@ -336,6 +329,7 @@ class EasyAD(object):
 
         connection = ADConnection(self.config)
         results = []
+        first_pass = True
 
         if base is None:
             base = self.config["AD_BASE_DN"]
@@ -344,27 +338,29 @@ class EasyAD(object):
             page_size = self.config["AD_PAGE_SIZE"]
 
         # Create the page control to work from
-        lc = _create_controls(page_size)
+        pg_ctrl = SimplePagedResultsControl(criticality=True, size=page_size, cookie='')
 
         try:
             connection.bind(credentials)
-            cookie = True
-            while cookie:
+
+            while first_pass or pg_ctrl.cookie:
+                first_pass = False
                 msgid = connection.ad.search_ext(base,
                                                  scope=scope,
                                                  filterstr=filter_string,
                                                  attrlist=attributes,
-                                                 clientctrls=[lc])
+                                                 serverctrls=[pg_ctrl])
 
                 rtype, rdata, rmsgid, serverctrls = connection.ad.result3(msgid)
                 results += process_ldap_results(rdata, json_safe=json_safe)
 
-                pctrls = _get_pctrls(serverctrls)
+                pctrls = _get_page_controls(serverctrls)
                 if pctrls is None:
                     print("Warning: Server ignores RFC 2696 control", file=stderr)
                     break
 
-                cookie = _set_cookie(lc, pctrls)
+                # Update the cookie
+                pg_ctrl.cookie = serverctrls[0].cookie
 
         finally:
             connection.unbind()
