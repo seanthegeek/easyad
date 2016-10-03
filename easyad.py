@@ -6,10 +6,12 @@ A simple Python module for common Active Directory authentication and lookup tas
 
 from __future__ import unicode_literals, print_function
 
+from sys import stderr
 from base64 import b64encode
 from datetime import datetime, timedelta
 
 import ldap
+from ldap.controls import SimplePagedResultsControl
 from ldap.filter import escape_filter_chars
 
 """Copyright 2016 Sean Whalen
@@ -35,6 +37,30 @@ try:
     unicode
 except NameError:
     unicode = str
+
+
+def _create_controls(pagesize):
+    """Create an LDAP control with a page size of "pagesize"."""
+    # Initialize the LDAP controls for paging. Note that we pass ''
+    # for the cookie because on first iteration, it starts out empty.
+    return SimplePagedResultsControl(criticality=True, size=pagesize, cookie=bytes("", "utf-8"))
+
+
+def _get_pctrls(serverctrls):
+    """Lookup an LDAP paged control object from the returned controls."""
+    # Look through the returned controls and find the page controls.
+    # This will also have our returned cookie which we need to make
+    # the next search request.
+    for control in serverctrls:
+        if control.controlType == SimplePagedResultsControl.controlType:
+            return control
+
+
+def _set_cookie(lc_object, pctrls):
+    """Push latest cookie back into the page control."""
+    cookie = pctrls[0].cookie
+    lc_object.cookie = cookie
+    return cookie
 
 
 def convert_ad_timestamp(timestamp, json_safe=False, str_format="%x %X"):
@@ -87,7 +113,7 @@ def _get_last_logon(timestamp, json_safe=False):
     return timestamp
 
 
-def decode_ldap_results(results, json_safe=False):
+def process_ldap_results(results, json_safe=False):
     """
     Converts LDAP search results from bytes to a dictionary of UTF-8 where possible
 
@@ -98,7 +124,7 @@ def decode_ldap_results(results, json_safe=False):
     Returns:
         A list of processed LDAP result dictionaries.
     """
-    results = [entry for dn, entry in results if isinstance(entry, dict)]
+    results = [ldap_object for dn, ldap_object in results if isinstance(ldap_object, dict)]
     for ldap_object in results:
         for attribute in ldap_object.keys():
             # pyldap returns all attributes as bytes. Yuk!
@@ -125,7 +151,7 @@ class ADConnection(object):
     def __init__(self, config):
         self.config = config
         ad_server_url = "ldap://{0}".format(self.config["AD_SERVER"])
-        ad = ldap.initialize(ad_server_url)
+        ad = ldap.initialize(ad_server_url, trace_level=2)
         ad.set_option(ldap.OPT_PROTOCOL_VERSION, ldap.VERSION3)
         ad.set_option(ldap.OPT_REFERRALS, 0)
 
@@ -135,6 +161,8 @@ class ADConnection(object):
             ad.set_option(ldap.OPT_X_TLS_DEMAND, 0)
         else:
             ad.set_option(ldap.OPT_X_TLS_DEMAND, 1)  # Force TLS by default
+        if "AD_PAGE_SIZE" not in self.config:
+            self.config["AD_PAGE_SIZE"] = 1000
 
         self.ad = ad
 
@@ -281,6 +309,68 @@ class EasyAD(object):
         self.user_attributes = EasyAD.user_attributes
         self.group_attributes = EasyAD.group_attributes
 
+    def search(self, base=None, scope=ldap.SCOPE_SUBTREE, filter_string="(objectClass=*)", credentials=None,
+               attributes=None, json_safe=False, page_size=None):
+        """
+        Run a search of the Active Directory server, and get the results
+
+        Args:
+            base: Optionally override the DN of the base object
+            scope: Optional scope setting, subtree by default.
+            filter_string: Optional custom filter string
+            credentials: Optionally override the bind credentials
+            attributes: A list of attributes to return. If none are specified, all attributes are returned
+            json_safe: If true, convert binary data to base64, and datetimes to human-readable strings
+            page_size: Optionally override the number of results to return per LDAP page
+
+        Returns:
+            Results as a list of dictionaries
+
+        Raises:
+            ldap.LDAP_ERROR
+
+        Notes:
+            Setting a small number of search_attributes and return_attributes reduces server load and bandwidth
+            respectively
+        """
+
+        connection = ADConnection(self.config)
+        results = []
+
+        if base is None:
+            base = self.config["AD_BASE_DN"]
+
+        if page_size is None:
+            page_size = self.config["AD_PAGE_SIZE"]
+
+        # Create the page control to work from
+        lc = _create_controls(page_size)
+
+        try:
+            connection.bind(credentials)
+            cookie = True
+            while cookie:
+                msgid = connection.ad.search_ext(base,
+                                                 scope=scope,
+                                                 filterstr=filter_string,
+                                                 attrlist=attributes,
+                                                 clientctrls=[lc])
+
+                rtype, rdata, rmsgid, serverctrls = connection.ad.result3(msgid)
+                results += process_ldap_results(rdata, json_safe=json_safe)
+
+                pctrls = _get_pctrls(serverctrls)
+                if pctrls is None:
+                    print("Warning: Server ignores RFC 2696 control", file=stderr)
+                    break
+
+                cookie = _set_cookie(lc, pctrls)
+
+        finally:
+            connection.unbind()
+
+        return results
+
     def get_user(self, user_string, base=None, credentials=None, attributes=None, json_safe=False):
         """
         Searches for a unique user object and returns its attributes
@@ -307,47 +397,40 @@ class EasyAD(object):
             base = self.config["AD_BASE_DN"]
 
         if attributes is None:
-            attributes = self.user_attributes
+            attributes = self.user_attributes.copy()
 
         filter_string = "(&(objectClass=user)(|(userPrincipalName={0})(sAMAccountName={0})(mail={0})" \
                         "(distinguishedName={0})))".format(escape_filter_chars(user_string))
-        connection = ADConnection(self.config)
 
-        try:
-            connection.bind(credentials)
-            results = connection.ad.search_s(base=base,
-                                             scope=ldap.SCOPE_SUBTREE,
-                                             filterstr=filter_string,
-                                             attrlist=attributes)
+        results = self.search(base=base,
+                              filter_string=filter_string,
+                              credentials=credentials,
+                              attributes=attributes,
+                              json_safe=json_safe)
 
-            results = decode_ldap_results(results, json_safe=json_safe)
+        if len(results) == 0:
+            raise ValueError("No such user")
+        elif len(results) > 1:
+            raise ValueError("The query returned more than one result")
 
-            if len(results) == 0:
-                raise ValueError("No such user")
-            elif len(results) > 1:
-                raise ValueError("The query returned more than one result")
+        user = results[0]
 
-            user = results[0]
-
-            if "memberOf" in user.keys():
-                user["memberOf"] = sorted(user["memberOf"], key=lambda dn: dn.lower())
-            if "showInAddressBook" in user.keys():
-                user["showInAddressBook"] = sorted(user["showInAddressBook"], key=lambda dn: dn.lower())
-            if "lastLogonTimestamp" in user.keys():
-                user["lastLogonTimestamp"] = _get_last_logon(user["lastLogonTimestamp"])
-            if "lockoutTime" in user.keys():
-                user["lockoutTime"] = convert_ad_timestamp(user["lockoutTime"], json_safe=json_safe)
-            if "pwdLastSet" in user.keys():
-                user["pwdLastSet"] = convert_ad_timestamp(user["pwdLastSet"], json_safe=json_safe)
-            if "userAccountControl" in user.keys():
-                user["userAccountControl"] = int(user["userAccountControl"])
-                user["disabled"] = user["userAccountControl"] & 2 != 0
-                user["passwordExpired"] = user["userAccountControl"] & 8388608 != 0
-                user["passwordNeverExpires"] = user["userAccountControl"] & 65536 != 0
-                user["smartcardRequired"] = user["userAccountControl"] & 262144 != 0
-
-        finally:
-            connection.unbind()
+        if "memberOf" in user.keys():
+            user["memberOf"] = sorted(user["memberOf"], key=lambda dn: dn.lower())
+        if "showInAddressBook" in user.keys():
+            user["showInAddressBook"] = sorted(user["showInAddressBook"], key=lambda dn: dn.lower())
+        if "lastLogonTimestamp" in user.keys():
+            user["lastLogonTimestamp"] = _get_last_logon(user["lastLogonTimestamp"])
+        if "lockoutTime" in user.keys():
+            user["lockoutTime"] = convert_ad_timestamp(user["lockoutTime"], json_safe=json_safe)
+        if "pwdLastSet" in user.keys():
+            user["pwdLastSet"] = convert_ad_timestamp(user["pwdLastSet"], json_safe=json_safe)
+        if "userAccountControl" in user.keys():
+            user["userAccountControl"] = int(user["userAccountControl"])
+            user["disabled"] = user["userAccountControl"] & 2 != 0
+            user["passwordExpired"] = user["userAccountControl"] & 8388608 != 0
+            user["passwordNeverExpires"] = user["userAccountControl"] & 65536 != 0
+            user["smartcardRequired"] = user["userAccountControl"] & 262144 != 0
 
         return user
 
@@ -403,28 +486,21 @@ class EasyAD(object):
             base = self.config["AD_BASE_DN"]
 
         if attributes is None:
-            attributes = self.group_attributes
+            attributes = self.group_attributes.copy()
 
         group_filter = "(&(objectClass=Group)(|(cn={0})(distinguishedName={0})))".format(
             escape_filter_chars(group_string))
 
-        connection = ADConnection(self.config)
-        try:
-            connection.bind(credentials)
-            results = connection.ad.search_s(base=base,
-                                             scope=ldap.SCOPE_SUBTREE,
-                                             filterstr=group_filter,
-                                             attrlist=attributes)
+        results = self.search(base=base,
+                              filter_string=group_filter,
+                              credentials=credentials,
+                              attributes=attributes,
+                              json_safe=json_safe)
 
-            results = decode_ldap_results(results, json_safe=json_safe)
-
-            if len(results) == 0:
-                raise ValueError("No such group")
-            elif len(results) > 1:
-                raise ValueError("The query returned more than one result")
-
-        finally:
-            connection.unbind()
+        if len(results) == 0:
+            raise ValueError("No such group")
+        elif len(results) > 1:
+            raise ValueError("The query returned more than one result")
 
         group = results[0]
         if "member" in group.keys():
@@ -504,21 +580,14 @@ class EasyAD(object):
             use EasyAD.user_is_member_of_group(). It is *much* faster.
         """
         user_dn = self.resolve_user_dn(user)
-        if base is None:
-            base = self.config["AD_BASE_DN"]
         filter_string = "(member:1.2.840.113556.1.4.1941:={0})".format(escape_filter_chars(user_dn))
-        connection = ADConnection(self.config)
-        try:
-            connection.bind(credentials)
-            results = connection.ad.search_s(base,
-                                             ldap.SCOPE_SUBTREE,
-                                             filterstr=filter_string,
-                                             attrlist=["distinguishedName"])
 
-            return sorted(list(map(lambda x: x["distinguishedName"],
-                                   decode_ldap_results(results, json_safe=json_safe))), key=lambda s: s.lower())
-        finally:
-            connection.unbind()
+        results = self.search(base=base,
+                              filter_string=filter_string,
+                              credentials=credentials,
+                              json_safe=json_safe)
+
+        return sorted(list(map(lambda x: x["distinguishedName"], results)), key=lambda s: s.lower())
 
     def get_all_users_in_group(self, group, base=None, credentials=None, json_safe=False):
         """
@@ -546,19 +615,15 @@ class EasyAD(object):
             base = self.config["AD_BASE_DN"]
         filter_string = "(&(objectClass=user)(memberof:1.2.840.113556.1.4.1941:={0}))".format(
             escape_filter_chars(group))
-        connection = ADConnection(self.config)
-        try:
-            connection.bind(credentials)
-            results = connection.ad.search_s(base,
-                                             ldap.SCOPE_SUBTREE,
-                                             filterstr=filter_string,
-                                             attrlist=["distinguishedName"])
 
-            return sorted(list(map(lambda x: x["distinguishedName"],
-                                   decode_ldap_results(results, json_safe=json_safe))), key=lambda s: s.lower())
+        results = self.search(base=base,
+                              scope=ldap.SCOPE_SUBTREE,
+                              filter_string=filter_string,
+                              attributes=["distinguishedName"],
+                              json_safe=json_safe)
 
-        finally:
-            connection.unbind()
+        return sorted(list(map(lambda x: x["distinguishedName"],
+                               process_ldap_results(results, json_safe=json_safe))), key=lambda s: s.lower())
 
     def user_is_member_of_group(self, user, group, base=None, credentials=None):
         """
@@ -580,4 +645,97 @@ class EasyAD(object):
         group = self.resolve_group_dn(group, base=base, credentials=credentials)
         return len(self.get_all_users_in_group(group, base=user, credentials=credentials)) > 0
 
+    def search_for_users(self, user_string, base=None, search_attributes=None, return_attributes=None, credentials=None,
+                         json_safe=False):
+        """
+        Returns matching user objects as a list of dictionaries
 
+        Args:
+            user_string: The substring to search for
+            base: Optionally override the base object's DN
+            search_attributes: The attributes to search through, with binary data removed
+            easyad.EasyAD.user_attributes by default
+            return_attributes: A list of attributes to return. easyad.EasyAD.user_attributes by default
+            credentials: Optionally override the bind credentials
+            json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+
+        Returns:
+            Results as a list of dictionaries
+
+        Raises:
+            ldap.LDAP_ERROR
+
+        Notes:
+            Setting a small number of search_attributes and return_attributes reduces server load and bandwidth
+            respectively
+
+        """
+        if search_attributes is None:
+            search_attributes = EasyAD.user_attributes.copy()
+        if "memberOf" in search_attributes:
+            search_attributes.remove("memberOf")
+        if "thumbnailPhoto" in search_attributes:
+            search_attributes.remove("thumbnailPhoto")
+
+        if return_attributes is None:
+            return_attributes = EasyAD.user_attributes.copy()
+
+        filter_string = ""
+        for attribute in search_attributes:
+            filter_string += "({0}=*{1}*)".format(attribute, escape_filter_chars(user_string))
+
+        filter_string = "(&(objectClass=User)(|{0}))".format(filter_string)
+
+        results = self.search(base=base,
+                              filter_string=filter_string,
+                              attributes=return_attributes,
+                              credentials=credentials,
+                              json_safe=json_safe)
+
+        return results
+
+    def search_for_groups(self, group_string, base=None, search_attributes=None, return_attributes=None,
+                          credentials=None, json_safe=False):
+        """
+        Returns matching group objects as a list of dictionaries
+        Args:
+            group_string: The substring to search for
+            base: Optionally override the base object's DN
+            search_attributes: The attributes to search through, with binary data removed
+            easyad.EasyAD.group_attributes by default
+            return_attributes: A list of attributes to return. easyad.EasyAD.group_attributes by default
+            credentials: Optionally override the bind credentials
+            json_safe: If true, convert binary data to base64 and datetimes to human-readable strings
+
+        Returns:
+            Results as a list of dictionaries
+
+        Raises:
+            ldap.LDAP_ERROR
+
+        Notes:
+            Setting a small number of search_attributes and return_attributes reduces server load and bandwidth
+            respectively
+
+        """
+        if search_attributes is None:
+            search_attributes = EasyAD.group_attributes.copy()
+        if "member" in search_attributes:
+            search_attributes.remove("member")
+
+        if return_attributes is None:
+            return_attributes = EasyAD.group_attributes.copy()
+
+        filter_string = ""
+        for attribute in search_attributes:
+            filter_string += "({0}=*{1}*)".format(attribute, escape_filter_chars(group_string))
+
+        filter_string = "(&(objectClass=Group)(|{0}))".format(filter_string)
+
+        results = self.search(base=base,
+                              filter_string=filter_string,
+                              attributes=return_attributes,
+                              credentials=credentials,
+                              json_safe=json_safe)
+
+        return results

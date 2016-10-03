@@ -92,8 +92,8 @@ ENV/
 .idea
 
 # Test creds
-test.py
-example.py
+test*.py
+example*.py
 
 # Certificates
 *.cer
