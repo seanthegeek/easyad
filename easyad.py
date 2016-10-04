@@ -117,16 +117,21 @@ def process_ldap_results(results, json_safe=False):
     Returns:
         A list of processed LDAP result dictionaries.
     """
-    results = [ldap_object for dn, ldap_object in results if isinstance(ldap_object, dict)]
+
+    for i in range(len(results)):
+        if isinstance(results[i], tuple):
+            results[i] = results[i][1]
+    results = [result for result in results if isinstance(result, dict)]
     for ldap_object in results:
         for attribute in ldap_object.keys():
             # pyldap returns all attributes as bytes. Yuk!
             for i in range(len(ldap_object[attribute])):
-                try:
-                    ldap_object[attribute][i] = ldap_object[attribute][i].decode("UTF-8")
-                except ValueError:
-                    if json_safe:
-                        ldap_object[attribute][i] = b64encode(ldap_object[attribute][i]).decode("UTF-8")
+                if isinstance(ldap_object[attribute][i], bytes):
+                    try:
+                        ldap_object[attribute][i] = ldap_object[attribute][i].decode("UTF-8")
+                    except ValueError:
+                        if json_safe:
+                            ldap_object[attribute][i] = b64encode(ldap_object[attribute][i]).decode("UTF-8")
             if len(ldap_object[attribute]) == 1:
                 ldap_object[attribute] = ldap_object[attribute][0]
 
@@ -524,7 +529,11 @@ class EasyAD(object):
             user = user["distinguishedName"]
         elif isinstance(user, str) or isinstance(user, unicode):
             if not user.lower().startswith("cn="):
-                user = self.get_user(user, base=base, credentials=credentials, json_safe=json_safe)["distinguishedName"]
+                user = self.get_user(user,
+                                     base=base,
+                                     credentials=credentials,
+                                     attributes=["distinguishedName"],
+                                     json_safe=json_safe)["distinguishedName"]
         else:
             raise ValueError("User passed as an unsupported data type")
         return user
@@ -549,7 +558,11 @@ class EasyAD(object):
             group = group["distinguishedName"]
         elif isinstance(group, str) or isinstance(group, unicode):
             if not group.lower().startswith("cn="):
-                group = self.get_group(group, base=base, credentials=credentials, json_safe=json_safe)["distinguishedName"]
+                group = self.get_group(group,
+                                       base=base,
+                                       credentials=credentials,
+                                       attributes=["distinguishedName"],
+                                       json_safe=json_safe)["distinguishedName"]
         else:
             raise ValueError("Group passed as an unsupported data type")
         return group
@@ -616,6 +629,7 @@ class EasyAD(object):
                               scope=ldap.SCOPE_SUBTREE,
                               filter_string=filter_string,
                               attributes=["distinguishedName"],
+                              credentials=credentials,
                               json_safe=json_safe)
 
         return sorted(list(map(lambda x: x["distinguishedName"],
