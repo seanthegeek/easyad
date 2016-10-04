@@ -18,7 +18,7 @@ def api_call(function):
     @wraps(function)
     def process_api_call(*args, **kwargs):
         try:
-            function(*args, **kwargs)
+           return function(*args, **kwargs)
 
         except ValueError as e:
             return jsonify(dict(error=str(e))), 404
