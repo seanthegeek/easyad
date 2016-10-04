@@ -138,6 +138,38 @@ def process_ldap_results(results, json_safe=False):
     return results
 
 
+def process_user(user, json_safe=False):
+    """
+    Converts AD user results into something more useful
+    Args:
+        user: A dictionary of user attributes
+        json_safe: If true, converts binary data into base64,
+        And datetimes into human-readable strings
+
+    Returns:
+        An enhanced dictionary of user attributes
+
+    """
+    if "memberOf" in user.keys():
+        user["memberOf"] = sorted(user["memberOf"], key=lambda dn: dn.lower())
+    if "showInAddressBook" in user.keys():
+        user["showInAddressBook"] = sorted(user["showInAddressBook"], key=lambda dn: dn.lower())
+    if "lastLogonTimestamp" in user.keys():
+        user["lastLogonTimestamp"] = _get_last_logon(user["lastLogonTimestamp"])
+    if "lockoutTime" in user.keys():
+        user["lockoutTime"] = convert_ad_timestamp(user["lockoutTime"], json_safe=json_safe)
+    if "pwdLastSet" in user.keys():
+        user["pwdLastSet"] = convert_ad_timestamp(user["pwdLastSet"], json_safe=json_safe)
+    if "userAccountControl" in user.keys():
+        user["userAccountControl"] = int(user["userAccountControl"])
+        user["disabled"] = user["userAccountControl"] & 2 != 0
+        user["passwordExpired"] = user["userAccountControl"] & 8388608 != 0
+        user["passwordNeverExpires"] = user["userAccountControl"] & 65536 != 0
+        user["smartcardRequired"] = user["userAccountControl"] & 262144 != 0
+
+    return user
+
+
 class ADConnection(object):
     """
     A LDAP configuration abstraction
@@ -414,26 +446,7 @@ class EasyAD(object):
         elif len(results) > 1:
             raise ValueError("The query returned more than one result")
 
-        user = results[0]
-
-        if "memberOf" in user.keys():
-            user["memberOf"] = sorted(user["memberOf"], key=lambda dn: dn.lower())
-        if "showInAddressBook" in user.keys():
-            user["showInAddressBook"] = sorted(user["showInAddressBook"], key=lambda dn: dn.lower())
-        if "lastLogonTimestamp" in user.keys():
-            user["lastLogonTimestamp"] = _get_last_logon(user["lastLogonTimestamp"])
-        if "lockoutTime" in user.keys():
-            user["lockoutTime"] = convert_ad_timestamp(user["lockoutTime"], json_safe=json_safe)
-        if "pwdLastSet" in user.keys():
-            user["pwdLastSet"] = convert_ad_timestamp(user["pwdLastSet"], json_safe=json_safe)
-        if "userAccountControl" in user.keys():
-            user["userAccountControl"] = int(user["userAccountControl"])
-            user["disabled"] = user["userAccountControl"] & 2 != 0
-            user["passwordExpired"] = user["userAccountControl"] & 8388608 != 0
-            user["passwordNeverExpires"] = user["userAccountControl"] & 65536 != 0
-            user["smartcardRequired"] = user["userAccountControl"] & 262144 != 0
-
-        return user
+        return process_user(results[0], json_safe=json_safe)
 
     def authenticate_user(self, username, password, base=None, attributes=None, json_safe=False):
         """
@@ -690,6 +703,13 @@ class EasyAD(object):
         if return_attributes is None:
             return_attributes = EasyAD.user_attributes.copy()
 
+        generated_attributes = ["disabled", "passwordExpired", "passwordNeverExpires", "smartcardRequired"]
+        for attribute in generated_attributes:
+            if attribute in return_attributes:
+                if "userAccountControl" not in return_attributes:
+                    return_attributes.append("userAccountControl")
+                break
+
         filter_string = ""
         for attribute in search_attributes:
             filter_string += "({0}=*{1}*)".format(attribute, escape_filter_chars(user_string))
@@ -701,6 +721,8 @@ class EasyAD(object):
                               attributes=return_attributes,
                               credentials=credentials,
                               json_safe=json_safe)
+
+        results = list(map(lambda user: process_user(user, json_safe=json_safe), results))
 
         return results
 

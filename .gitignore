@@ -94,6 +94,7 @@ ENV/
 # Test creds
 test*.py
 example*.py
+config.py
 
 # Certificates
 *.cer
