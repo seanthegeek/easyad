@@ -56,7 +56,7 @@ Then
 
 ::
 
-    $ sudo pip3 -U easyad
+    $ sudo pip3 install -U easyad
 
 Example uses
 ------------
