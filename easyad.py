@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "0.5.0"
+__version__ = "1.0.0"
 
 
 # Python 2 & 3 support hack
@@ -138,7 +138,7 @@ def process_ldap_results(results, json_safe=False):
     return results
 
 
-def process_user(user, json_safe=False):
+def enhance_user(user, json_safe=False):
     """
     Converts AD user results into something more useful
     Args:
@@ -179,6 +179,19 @@ class ADConnection(object):
         ad: The LDAP interface instance
     """
     def __init__(self, config):
+        """
+        Initializes 
+
+         Args:
+            config: A dictionary of configuration settings
+                Required:
+                    AD_SERVER: The hostname of the Active Directory Server
+                Optional:
+                    AD_REQUIRE_TLS: Require a TLS connection. True by default.
+                    AD_CA_CERT_FILE: The path to the root CA certificate file
+                    AD_PAGE_SIZE: Overrides the default page size of 1000
+                    AD_OPTIONS: A dictionary of other python-ldap options
+        """
         self.config = config
         ad_server_url = "ldap://{0}".format(self.config["AD_SERVER"])
         ad = ldap.initialize(ad_server_url)
@@ -193,6 +206,10 @@ class ADConnection(object):
             ad.set_option(ldap.OPT_X_TLS_DEMAND, 1)  # Force TLS by default
         if "AD_PAGE_SIZE" not in self.config:
             self.config["AD_PAGE_SIZE"] = 1000
+        if "AD_OPTIONS" in config and isinstance(config["AD_OPTIONS"], dict):
+            options = config["AD_OPTIONS"]
+            for key in options.keys():
+                ad.set_option(key, options[key])
 
         self.ad = ad
 
@@ -238,7 +255,7 @@ class ADConnection(object):
 
 class EasyAD(object):
     """
-    A simple class for interacting with Active Directory
+    A high-level class for interacting with Active Directory
 
     Attributes:
         user_attributes: A default list of attributes to return from a user query
@@ -328,6 +345,8 @@ class EasyAD(object):
                     AD_REQUIRE_TLS: Require a TLS connection. True by default.
                     AD_CA_CERT_FILE: The path to the root CA certificate file
                     AD_BASE_DN: Overrides the base distinguished name. Derived from AD_DOMAIN by default.
+                    AD_PAGE_SIZE: Overrides the default page size of 1000
+                    AD_OPTIONS: A dictionary of other python-ldap options
         """
         self.config = config
         base_dn = ""
@@ -446,7 +465,7 @@ class EasyAD(object):
         elif len(results) > 1:
             raise ValueError("The query returned more than one result")
 
-        return process_user(results[0], json_safe=json_safe)
+        return enhance_user(results[0], json_safe=json_safe)
 
     def authenticate_user(self, username, password, base=None, attributes=None, json_safe=False):
         """
@@ -722,7 +741,7 @@ class EasyAD(object):
                               credentials=credentials,
                               json_safe=json_safe)
 
-        results = list(map(lambda user: process_user(user, json_safe=json_safe), results))
+        results = list(map(lambda user: enhance_user(user, json_safe=json_safe), results))
 
         return results
 

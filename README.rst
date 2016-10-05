@@ -42,13 +42,6 @@ Features
 -  Options to automatically convert binary data into base64 for JSON-safe
    output
 
-To do
------
-
-1. More testing/proofreading
-2. ???
-3. Upload to PyPI
-
 
 Installing
 ----------
@@ -63,7 +56,7 @@ Then
 
 ::
 
-    $ sudo pip3 install git+https://github.com/seanthegeek/easyad.git
+    $ sudo pip3 -U easyad
 
 Example uses
 ------------
@@ -152,7 +145,7 @@ convert_ad_timestamp(timestamp, json_safe=False)
         A datetime or a human-readable string
 
 
-decode_ldap_results(results, json_safe=False)
+process_ldap_results(results, json_safe=False)
 
 ::
 
@@ -165,18 +158,19 @@ decode_ldap_results(results, json_safe=False)
     Returns:
         A list of processed LDAP result dictionaries.
 
-easyad.ADConnection methods
----------------------------
-
-ADConnection.__init__(self, config)
+easyad.ADConnection
+-------------------
 
 ::
 
-    A LDAP configuration abstraction
+    A LDAP configuration abstraction class
 
     Attributes:
         config: The configuration dictionary
         ad:The LDAP interface instance
+
+
+ADConnection.__init__(self, config)
 
 ADConnection.bind(self, credentials=None)
 
@@ -200,8 +194,16 @@ ADConnection.unbind(self)
 
     Unbind from the Active Directory server
 
-easyad.EasyAD methods
----------------------
+easyad.EasyAD
+-------------
+
+::
+
+    A high-level class for interacting with Active Directory
+
+    Attributes:
+        user_attributes: A default list of attributes to return from a user query
+        group_attributes: A default list of attributes to return from a user query
 
 EasyAD.__init__(self, config)
 
@@ -455,13 +457,13 @@ EasyAD.user_is_member_of_group(self, user, group, base=None, credentials=None)
     Tests if a given user is a member of the given group
 
     Args:
-    user: A principalAccountName, sAMAccountName, email, or DN
-    group: A group name, cn, or dn
-    base: An optional dictionary of the username and password to use
-    credentials: An optional dictionary of the username and password to use
+        user: A principalAccountName, sAMAccountName, email, or DN
+        group: A group name, cn, or dn
+        base: An optional dictionary of the username and password to use
+        credentials: An optional dictionary of the username and password to use
 
     Raises:
     ldap.LDAP_ERROR
 
     Returns:
-    A boolean that indicates if the given user is a member of the given group
+        A boolean that indicates if the given user is a member of the given group
