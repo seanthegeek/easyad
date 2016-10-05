@@ -145,6 +145,20 @@ convert_ad_timestamp(timestamp, json_safe=False)
         A datetime or a human-readable string
 
 
+enhance_user(user, json_safe=False)
+
+::
+
+    Adds computed attributes to AD user results
+
+    Args:
+        user: A dictionary of user attributes
+        json_safe: If true, converts binary data into base64,
+        And datetimes into human-readable strings
+
+    Returns:
+        An enhanced dictionary of user attributes
+
 process_ldap_results(results, json_safe=False)
 
 ::
@@ -171,6 +185,22 @@ easyad.ADConnection
 
 
 ADConnection.__init__(self, config)
+
+::
+
+
+    Initializes an ADConnection object
+
+     Args:
+        config: A dictionary of configuration settings
+            Required:
+                AD_SERVER: The hostname of the Active Directory Server
+            Optional:
+                AD_REQUIRE_TLS: Require a TLS connection. True by default.
+                AD_CA_CERT_FILE: The path to the root CA certificate file
+                AD_PAGE_SIZE: Overrides the default page size of 1000
+                AD_OPTIONS: A dictionary of other python-ldap options
+
 
 ADConnection.bind(self, credentials=None)
 
@@ -209,7 +239,7 @@ EasyAD.__init__(self, config)
 
 ::
 
-    Initializes the EasyAD class
+    Initializes an EasyAD object
 
      Args:
         config: A dictionary of configuration settings

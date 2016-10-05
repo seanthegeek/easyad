@@ -140,7 +140,7 @@ def process_ldap_results(results, json_safe=False):
 
 def enhance_user(user, json_safe=False):
     """
-    Converts AD user results into something more useful
+    Adds computed attributes to AD user results
     Args:
         user: A dictionary of user attributes
         json_safe: If true, converts binary data into base64,
@@ -148,7 +148,6 @@ def enhance_user(user, json_safe=False):
 
     Returns:
         An enhanced dictionary of user attributes
-
     """
     if "memberOf" in user.keys():
         user["memberOf"] = sorted(user["memberOf"], key=lambda dn: dn.lower())
@@ -180,7 +179,7 @@ class ADConnection(object):
     """
     def __init__(self, config):
         """
-        Initializes 
+        Initializes an ADConnection object
 
          Args:
             config: A dictionary of configuration settings
@@ -334,7 +333,7 @@ class EasyAD(object):
 
     def __init__(self, config):
         """
-        Initializes the EasyAD object
+        Initializes an EasyAD object
 
         Args:
             config: A dictionary of configuration settings
