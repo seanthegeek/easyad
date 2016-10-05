@@ -497,3 +497,4 @@ EasyAD.user_is_member_of_group(self, user, group, base=None, credentials=None)
 
     Returns:
         A boolean that indicates if the given user is a member of the given group
+
