@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 
 # Python 2 & 3 support hack
@@ -427,7 +427,7 @@ class EasyAD(object):
         Searches for a unique user object and returns its attributes
 
         Args:
-            user_string: A userPrincipalName, sAMAccountName, or distinguishedName
+            user_string: A userPrincipalName, sAMAccountName, uid, email address, or distinguishedName
             base: Optionally override the base dn
             credentials: A optional dictionary of the username and password to use.
             If credentials are not passed, the credentials from the initial EasyAD configuration are used.
@@ -450,7 +450,7 @@ class EasyAD(object):
         if attributes is None:
             attributes = self.user_attributes.copy()
 
-        filter_string = "(&(objectClass=user)(|(userPrincipalName={0})(sAMAccountName={0})(mail={0})" \
+        filter_string = "(&(objectClass=user)(|(userPrincipalName={0})(sAMAccountName={0})(uid={0})(mail={0})" \
                         "(distinguishedName={0})))".format(escape_filter_chars(user_string))
 
         results = self.search(base=base,
