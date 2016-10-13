@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 
 # Python 2 & 3 support hack
@@ -300,6 +300,7 @@ class EasyAD(object):
         "physicalDeliveryOfficeName",
         "postalCode",
         "prefFirstName",
+        "proxyAddresses",
         "pwdLastSet",
         "rehireDate",
         "roomNumber",
@@ -451,7 +452,7 @@ class EasyAD(object):
             attributes = self.user_attributes.copy()
 
         filter_string = "(&(objectClass=user)(|(userPrincipalName={0})(sAMAccountName={0})(uid={0})(mail={0})" \
-                        "(distinguishedName={0})))".format(escape_filter_chars(user_string))
+                        "(distinguishedName={0})(proxyAddresses=SMTP:{0})))".format(escape_filter_chars(user_string))
 
         results = self.search(base=base,
                               filter_string=filter_string,
