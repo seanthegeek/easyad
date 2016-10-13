@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 
 # Python 2 & 3 support hack
@@ -67,13 +67,16 @@ def convert_ad_timestamp(timestamp, json_safe=False, str_format="%x %X"):
     Returns:
         A datetime or a human-readable string
     """
-    if not isinstance(timestamp, int):
-        timestamp = int(timestamp.split(".")[0])
-    if timestamp == 0:
-        return None
-    epoch_start = datetime(year=1601, month=1, day=1)
-    seconds_since_epoch = timestamp / 10 ** 7
-    converted_timestamp = epoch_start + timedelta(seconds=seconds_since_epoch)
+    try:
+        timestamp = int(timestamp)
+        if timestamp == 0:
+            return None
+        epoch_start = datetime(year=1601, month=1, day=1)
+        seconds_since_epoch = timestamp / 10 ** 7
+        converted_timestamp = epoch_start + timedelta(seconds=seconds_since_epoch)
+
+    except ValueError:
+        converted_timestamp = datetime.strptime(timestamp.split(".")[0], "%Y%m%d%H%M%S")
 
     if json_safe:
         converted_timestamp = converted_timestamp.strftime(str_format)
