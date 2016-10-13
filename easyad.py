@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 
 
 # Python 2 & 3 support hack
@@ -67,7 +67,8 @@ def convert_ad_timestamp(timestamp, json_safe=False, str_format="%x %X"):
     Returns:
         A datetime or a human-readable string
     """
-    timestamp = int(timestamp)
+    if not isinstance(timestamp, int):
+        timestamp = int(timestamp.split(".")[0])
     if timestamp == 0:
         return None
     epoch_start = datetime(year=1601, month=1, day=1)
@@ -165,6 +166,8 @@ def enhance_user(user, json_safe=False):
         user["passwordExpired"] = user["userAccountControl"] & 8388608 != 0
         user["passwordNeverExpires"] = user["userAccountControl"] & 65536 != 0
         user["smartcardRequired"] = user["userAccountControl"] & 262144 != 0
+    if "whenCreated" in user.keys():
+        user["whenCreated"] = convert_ad_timestamp(user["whenCreated"], json_safe=json_safe)
 
     return user
 
@@ -317,7 +320,8 @@ class EasyAD(object):
         "title",
         "uid",
         "userAccountControl",
-        "userPrincipalName"
+        "userPrincipalName",
+        "whenCreated"
     ]
 
     group_attributes = [
