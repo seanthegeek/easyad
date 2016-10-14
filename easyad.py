@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 
 
 # Python 2 & 3 support hack
@@ -37,6 +37,28 @@ try:
     unicode
 except NameError:
     unicode = str
+
+exchange_mailbox_values = {
+    1: "User Mailbox",
+    2: "Linked Mailbox",
+    4: "Shared Mailbox",
+    8: "Legacy Mailbox",
+    16: "Room Mailbox",
+    32: "Equipment Mailbox",
+    8192: "System Attendant Mailbox",
+    16384: "Mailbox Database Mailbox",
+    2147483648: "Remote User Mailbox",
+    8589934592: "Remote Room Mailbox",
+    17173869184: "Remote Equipment Mailbox",
+    34359738368: "Remote Shared Mailbox"
+}
+
+remote_exchange_mailbox_values = {
+    2147483648: "Remote User Mailbox",
+    8589934592: "Remote Room Mailbox",
+    17173869184: "Remote Equipment Mailbox",
+    34359738368: "Remote Shared Mailbox"
+}
 
 
 def _create_controls(pagesize):
@@ -171,6 +193,12 @@ def enhance_user(user, json_safe=False):
         user["smartcardRequired"] = user["userAccountControl"] & 262144 != 0
     if "whenCreated" in user.keys():
         user["whenCreated"] = convert_ad_timestamp(user["whenCreated"], json_safe=json_safe)
+    if "msExchRecipientTypeDetails" in user.keys():
+        user["msExchRecipientTypeDetails"] = int(user["msExchRecipientTypeDetails"])
+        user["remoteExchangeMailbox"] = user["msExchRecipientTypeDetails"] in remote_exchange_mailbox_values
+        user["exchangeMailbox"] = user["msExchRecipientTypeDetails"] in exchange_mailbox_values.keys()
+        if user["exchangeMailbox"]:
+            user["exchangeMailboxType"] = exchange_mailbox_values[user["msExchRecipientTypeDetails"]]
 
     return user
 
@@ -266,6 +294,7 @@ class EasyAD(object):
         user_attributes: A default list of attributes to return from a user query
         group_attributes: A default list of attributes to return from a user query
     """
+
     user_attributes = [
         "businessCategory",
         "businessSegment",
@@ -302,6 +331,7 @@ class EasyAD(object):
         "mailNickname",
         "manager",
         "memberOf",
+        "msExchRecipientTypeDetails",
         "phonebookVisibility",
         "physicalDeliveryOfficeName",
         "postalCode",
