@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 
 
 # Python 2 & 3 support hack
@@ -299,7 +299,7 @@ class EasyAD(object):
         "businessCategory",
         "businessSegment",
         "businessSegmentDescription",
-        "businessUnitDescription"
+        "businessUnitDescription",
         "c",
         "cn",
         "co",
@@ -308,6 +308,7 @@ class EasyAD(object):
         "countryCode",
         "department",
         "departmentNumber",
+        "description",
         "displayName",
         "distinguishedName",
         "employeeClass",
