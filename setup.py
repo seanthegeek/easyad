@@ -15,9 +15,6 @@ from setuptools import setup
 from codecs import open
 from os import path
 
-from easyad import __version__
-from easyad import __doc__ as description
-
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
@@ -30,9 +27,9 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version=__version__,
+    version="1.0.9",
 
-    description=description,
+    description="A simple Python module for common Active Directory authentication and lookup tasks",
     long_description=long_description,
 
     # The project's main homepage.

@@ -29,7 +29,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-__version__ = "1.0.8"
+__version__ = "1.0.9"
 
 
 # Python 2 & 3 support hack
@@ -392,7 +392,7 @@ class EasyAD(object):
         for part in self.config["AD_DOMAIN"].split("."):
             base_dn += "dc={0},".format(part)
         base_dn = base_dn.rstrip(",")
-        if "AD_BASE_DN" not in self.config.keys() or self.config["BASE_DN"] is None:
+        if "AD_BASE_DN" not in self.config.keys() or self.config["AD_BASE_DN"] is None:
             self.config["AD_BASE_DN"] = base_dn
         self.user_attributes = EasyAD.user_attributes
         self.group_attributes = EasyAD.group_attributes
