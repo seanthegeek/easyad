@@ -244,6 +244,9 @@ class ADConnection(object):
             for key in options.keys():
                 ad.set_option(key, options[key])
 
+        if ad.get_option(ldap.OPT_X_TLS_DEMAND):
+            ad.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
+
         self.ad = ad
 
     def bind(self, credentials=None):
@@ -275,6 +278,9 @@ class ADConnection(object):
             username = "{0}@{1}".format(username, self.config["AD_DOMAIN"])
 
         password = credentials["password"]
+
+        if self.ad.get_option(ldap.OPT_X_TLS_DEMAND):
+            self.ad.start_tls_s()
 
         self.ad.bind_s(username, password)
         return True
