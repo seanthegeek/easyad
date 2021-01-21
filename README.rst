@@ -80,7 +80,7 @@ Example uses
     # Set up configuration. You could also use a Flask app.config
     config = dict(AD_SERVER="ad.example.net",
                   AD_DOMAIN="example.net",
-                  CA_CERT_FILE="myrootca.crt")
+                  AD_CA_CERT_FILE="myrootca.crt")
 
     # Initialize all the things!
     ad = EasyAD(config)
