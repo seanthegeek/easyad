@@ -164,6 +164,17 @@ def process_ldap_results(results, json_safe=False):
     return results
 
 
+def _listify(x):
+    """
+    Some servers send back inconsistently-typed fields, e.g. a single
+    string or a list of strings depending on the number of entries.
+    This function returns a list version of x if x is a non-string
+    iterable, otherwise returns a list with x as its only element,
+    which allows us to coerce such values into their type.
+    """
+    return [x] if isinstance(x, (type(b''), type(''))) else list(x)
+
+
 def enhance_user(user, json_safe=False):
     """
     Adds computed attributes to AD user results
@@ -176,7 +187,7 @@ def enhance_user(user, json_safe=False):
         An enhanced dictionary of user attributes
     """
     if "memberOf" in user.keys():
-        user["memberOf"] = sorted(user["memberOf"], key=lambda dn: dn.lower())
+        user["memberOf"] = sorted(_listify(user["memberOf"]), key=lambda dn: dn.lower())
     if "showInAddressBook" in user.keys():
         user["showInAddressBook"] = sorted(user["showInAddressBook"], key=lambda dn: dn.lower())
     if "lastLogonTimestamp" in user.keys():
