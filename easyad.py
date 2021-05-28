@@ -712,7 +712,7 @@ class EasyAD(object):
         return sorted(list(map(lambda x: x["distinguishedName"],
                                process_ldap_results(results, json_safe=json_safe))), key=lambda s: s.lower())
 
-    def user_is_member_of_group(self, user, group, base=None, credentials=None):
+    def user_is_member_of_group(self, user, group, base=None, credentials=None, json_safe=False):
         """
         Tests if a given user is a member of the given group
 
@@ -728,9 +728,9 @@ class EasyAD(object):
         Returns:
             A boolean that indicates if the given user is a member of the given group
         """
-        user = self.resolve_user_dn(user, base=base, credentials=credentials)
-        group = self.resolve_group_dn(group, base=base, credentials=credentials)
-        return len(self.get_all_users_in_group(group, base=user, credentials=credentials)) > 0
+        user = self.resolve_user_dn(user, base=base, credentials=credentials, json_safe=json_safe)
+        group = self.resolve_group_dn(group, base=base, credentials=credentials, json_safe=json_safe)
+        return len(self.get_all_users_in_group(group, base=user, credentials=credentials, json_safe=json_safe)) > 0
 
     def search_for_users(self, user_string, base=None, search_attributes=None, return_attributes=None, credentials=None,
                          json_safe=False):
